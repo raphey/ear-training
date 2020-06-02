@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import reduce
 from random import choice
 from random import randint
@@ -8,6 +9,7 @@ import numpy as np
 
 class Tone(object):
     sample_rate = 44100
+    envelope_samples = 100
 
     def __init__(self, frequency_hz, duration_seconds=1, amplitude=0.5):
         self.frequency = frequency_hz
@@ -15,6 +17,15 @@ class Tone(object):
         self.amplitude = amplitude
         self.sample_times = np.linspace(0., duration_seconds, self.sample_rate)
         self.data = amplitude * np.sin(2. * np.pi * frequency_hz * self.sample_times)
+        self.envelope_data()
+
+    def envelope_data(self):
+        if len(self.data) < 2 * self.envelope_samples:
+            return
+        for i in range(self.envelope_samples):
+            ratio = float(i) / self.envelope_samples
+            self.data[i] *= ratio
+            self.data[-(i + 1)] *= ratio
 
     def get_data(self):
         return self.data.copy()
@@ -86,7 +97,6 @@ class RandomTonePairSequence(ToneSequence):
         self.tone_count = tone_count
         self.tuning_width = tuning_width
         self.random_bits = ''.join(str(randint(0, 1)) for _ in range(tone_count))
-        print(self.random_bits)
         tuning_ratio = self.semitone_ratio**self.tuning_width
         lo_f, hi_f = ((self.base_f, self.base_f * tuning_ratio) if self.random_bits[0] == '0' else
                       (self.base_f / tuning_ratio, self.base_f))
@@ -96,7 +106,13 @@ class RandomTonePairSequence(ToneSequence):
                                                      tone_amplitudes=tone_amplitudes,
                                                      gap_durations=gap_durations)
 
+    def write_tone_to_file(self, save_path=None):
+        if save_path is None:
+            date_string = datetime.today().strftime('%Y%m%d-%H%M%S')
+            save_path = '{}_{}_{}_{}.wav'.format(date_string, self.tuning_width, self.base_key, self.random_bits)
+        super(RandomTonePairSequence, self).write_tone_to_file(save_path)
 
 
-tps = RandomTonePairSequence(10, 0.15)
-tps.write_tone_to_file('example1.wav')
+for _ in range(10):
+    tps = RandomTonePairSequence(10, 0.15)
+    tps.write_tone_to_file()
